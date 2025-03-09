@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clipboard Image Gallery</title>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --bg-color: #f9fafb;
+            --text-color: #333;
+            --border-color: #ddd;
+            --shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            --transition: all 0.2s ease;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.4;
+            font-size: 14px;
+        }
+
+        header {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem 1rem;
+            background-color: #ffffff;
+            box-shadow: var(--shadow);
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        #searchBar {
+            padding: 0.4rem 0.75rem;
+            border-radius: 4px;
+            border: 1px solid var(--border-color);
+            width: 200px;
+            font-size: 0.9rem;
+        }
+
+        .layout {
+            display: grid;
+            grid-template-columns: minmax(250px, 2fr) minmax(200px, 1fr);
+            gap: 1rem;
+            padding: 1rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        @media (max-width: 768px) {
+            .layout {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .paste-area {
+            border: 1px dashed var(--border-color);
+            padding: 1.5rem;
+            text-align: center;
+            background-color: white;
+            border-radius: 8px;
+            min-height: 150px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .paste-instructions img {
+            width: 40px;
+            height: 40px;
+            margin-bottom: 0.75rem;
+        }
+
+        .paste-instructions p {
+            margin: 0.25rem 0;
+            font-size: 0.9rem;
+        }
+
+        .image-details {
+            position: sticky;
+            top: 60px;
+            border: 1px solid var(--border-color);
+            padding: 1rem;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: var(--shadow);
+            font-size: 0.9rem;
+        }
+
+        .image-gallery {
+            grid-column: 1 / -1;
+        }
+
+        .image-gallery h2 {
+            font-size: 1.1rem;
+            margin: 0.5rem 0;
+        }
+
+        .gallery-items {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 1rem;
+            margin-top: 0.75rem;
+        }
+
+        .gallery-item {
+            border-radius: 6px;
+            overflow: hidden;
+            background-color: white;
+            box-shadow: var(--shadow);
+        }
+
+        .gallery-item img {
+            width: 100%;
+            height: 140px;
+            object-fit: cover;
+        }
+
+        .gallery-item .details {
+            padding: 0.75rem;
+        }
+
+        .gallery-item .details p {
+            margin: 0 0 0.5rem 0;
+            font-size: 0.85rem;
+        }
+
+        .button {
+            padding: 0.35rem 0.75rem;
+            border: none;
+            border-radius: 4px;
+            background-color: var(--primary-color);
+            color: white;
+            cursor: pointer;
+            font-size: 0.85rem;
+            margin: 0.15rem;
+        }
+
+        .loading {
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(74, 144, 226, 0.3);
+            border-radius: 50%;
+            border-top-color: var(--primary-color);
+            margin-right: 6px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Clipboard Image Gallery</h1>
+        <input type="text" id="searchBar" placeholder="Search images...">
+    </header>
+    <main class="layout">
+        <section id="pasteArea" class="paste-area">
+            <div class="paste-instructions">
+                <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%234a90e2'%3E%3Cpath d='M16 2H8C6.9 2 6 2.9 6 4v16c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 18H8V4h8v16z'/%3E%3C/svg%3E" alt="Clipboard Icon">
+                <p><strong>Paste Image Here</strong></p>
+                <p>Copy an image and paste (Ctrl+V or ⌘+V)</p>
+                <p>Or drag and drop an image file</p>
+            </div>
+        </section>
+        <aside id="imageDetails" class="image-details">
+            <p>No image selected</p>
+            <p>Select an image to view details</p>
+        </aside>
+        <section id="imageGallery" class="image-gallery">
+            <h2>Your Images (0)</h2>
+            <div id="galleryItems" class="gallery-items"></div>
+        </section>
+    </main>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const pasteArea = document.getElementById('pasteArea');
+            const galleryItems = document.getElementById('galleryItems');
+            const imageDetails = document.getElementById('imageDetails');
+            const searchBar = document.getElementById('searchBar');
+            
+            // Load images from localStorage with error handling
+            const loadSavedImages = () => {
+                try {
+                    const savedImages = JSON.parse(localStorage.getItem('galleryImages') || '[]');
+                    if (Array.isArray(savedImages)) {
+                        savedImages.forEach(img => {
+                            if (img && img.src && img.date) {
+                                addImageToGallery(img.src, img.date);
+                            }
+                        });
+                        updateImageCount();
+                    }
+                } catch (error) {
+                    console.error('Error loading saved images:', error);
+                }
+            };
+            
+            // Save images to localStorage with error handling
+            const saveImages = () => {
+                try {
+                    const images = Array.from(galleryItems.children).map(item => ({
+                        src: item.querySelector('img').src,
+                        date: item.dataset.date
+                    }));
+                    localStorage.setItem('galleryImages', JSON.stringify(images));
+                } catch (error) {
+                    console.error('Error saving images:', error);
+                }
+            };
+
+            // Debounce function
+            const debounce = (func, wait) => {
+                let timeout;
+                return function executedFunction(...args) {
+                    const later = () => {
+                        clearTimeout(timeout);
+                        func(...args);
+                    };
+                    clearTimeout(timeout);
+                    timeout = setTimeout(later, wait);
+                };
+            };
+
+            // Search functionality with persistence
+            const handleSearch = debounce((searchTerm) => {
+                const items = galleryItems.getElementsByClassName('gallery-item');
+                Array.from(items).forEach(item => {
+                    const date = item.dataset.date;
+                    const shouldShow = date.toLowerCase().includes(searchTerm.toLowerCase());
+                    item.style.display = shouldShow ? 'block' : 'none';
+                });
+            }, 300);
+
+            searchBar.addEventListener('input', (e) => handleSearch(e.target.value));
+
+            // Handle paste event
+            document.addEventListener('paste', (e) => {
+                const items = e.clipboardData.items;
+                for (let item of items) {
+                    if (item.type.indexOf('image') !== -1) {
+                        const blob = item.getAsFile();
+                        handleImageUpload(blob);
+                    }
+                }
+            });
+
+            // Handle image upload with improved error handling
+            const handleImageUpload = (file) => {
+                if (!file) return;
+                
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const date = new Date().toLocaleString();
+                        addImageToGallery(event.target.result, date);
+                        saveImages(); // Save immediately after adding
+                    };
+                    img.onerror = () => {
+                        console.error('Error loading image');
+                    };
+                    img.src = event.target.result;
+                };
+                reader.onerror = () => {
+                    console.error('Error reading file');
+                };
+                reader.readAsDataURL(file);
+            };
+
+            // Add image to gallery with validation
+            function addImageToGallery(imageSrc, date = new Date().toLocaleString()) {
+                if (!imageSrc) return;
+                
+                const galleryItem = document.createElement('div');
+                galleryItem.className = 'gallery-item';
+                galleryItem.dataset.date = date;
+                
+                galleryItem.innerHTML = `
+                    <img src="${imageSrc}" alt="Gallery Image" loading="lazy">
+                    <div class="details">
+                        <p>${date}</p>
+                        <button class="button" onclick="viewImageDetails('${imageSrc}', '${date}')">View</button>
+                        <button class="button delete" onclick="deleteImage(this)">Delete</button>
+                    </div>
+                `;
+                
+                galleryItems.appendChild(galleryItem);
+                updateImageCount();
+                saveImages(); // Save after adding
+            }
+
+            // View image details
+            window.viewImageDetails = function(imageSrc, date) {
+                if (!imageSrc) return;
+                
+                const img = new Image();
+                img.onload = function() {
+                    imageDetails.innerHTML = `
+                        <img src="${imageSrc}" alt="Selected Image" style="max-width:100%; border-radius:8px;">
+                        <h3>Image Details</h3>
+                        <p>Added: ${date}</p>
+                        <p>Dimensions: ${this.width}x${this.height}px</p>
+                    `;
+                };
+                img.src = imageSrc;
+            };
+
+            // Delete image with persistence
+            window.deleteImage = function(button) {
+                const item = button.closest('.gallery-item');
+                item.style.opacity = '0';
+                setTimeout(() => {
+                    item.remove();
+                    updateImageCount();
+                    saveImages(); // Save after deletion
+                    imageDetails.innerHTML = `<p>No image selected</p><p>Select an image to view details</p>`;
+                }, 300);
+            };
+
+            // Update image count
+            function updateImageCount() {
+                const count = galleryItems.children.length;
+                document.querySelector('.image-gallery h2').textContent = `Your Images (${count})`;
+            }
+
+            // Drag and drop handling
+            pasteArea.addEventListener('dragenter', () => pasteArea.classList.add('drag-over'));
+            pasteArea.addEventListener('dragleave', () => pasteArea.classList.remove('drag-over'));
+            pasteArea.addEventListener('dragover', (e) => e.preventDefault());
+            pasteArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                pasteArea.classList.remove('drag-over');
+                const files = e.dataTransfer.files;
+                for (let file of files) {
+                    if (file.type.startsWith('image/')) {
+                        handleImageUpload(file);
+                    }
+                }
+            });
+
+            // Load saved images on startup
+            loadSavedImages();
+        });
+    </script>
+</body>
+</html>
